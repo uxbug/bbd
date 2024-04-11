@@ -1,6 +1,8 @@
 # bbd
 a simple homebrew bottle downloader
-仅仅方便下些东西，某些程序需自行解决库依赖问题。
+
+- 仅仅方便下些东西，某些程序需自行解决库依赖问题。
+- 默认清华源
 
 # 用法
 chmod +x bbd.sh
