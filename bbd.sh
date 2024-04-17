@@ -2,7 +2,7 @@
 mirror_url="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/"
 
 # 搜索 bottles
-search_results=$(curl -k -s "$mirror_url" | grep -E "href=\"($1.*\.bottle\.tar\.gz)\"" | sed 's/.*href="\([^"]*\)".*/\1/')
+search_results=$(curl -k -s "$mirror_url" | grep -E "href=\"($1.*\.bottle.*\.tar\.gz)\"" | sed 's/.*href="\([^"]*\)".*/\1/')
 
 # 检查搜索结果
 if [ -z "$search_results" ]; then
