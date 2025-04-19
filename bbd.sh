@@ -1,38 +1,56 @@
-# 配置镜像站地址
-mirror_url="https://mirrors.tuna.tsinghua.edu.cn/homebrew-bottles/"
+#!/bin/bash
 
-# 搜索 bottles
-search_results=$(curl -k -s "$mirror_url" | grep -E "href=\"($1.*\.bottle.*\.tar\.gz)\"" | sed 's/.*href="\([^"]*\)".*/\1/')
+if [[ -z "$1" ]]; then
+    echo "bbd <bottle>"
+    exit 1
+fi
+FORMULA=$1
 
-# 检查搜索结果
-if [ -z "$search_results" ]; then
-  echo "错误: 找不到 $1 的 bottle"
-  exit 1
+FORMULA_JSON=$(curl -s "https://formulae.brew.sh/api/formula/$FORMULA.json")
+
+if [[ $(echo $FORMULA_JSON | jq -r '.name' 2>/dev/null) == "null" ]]; then
+    echo "Formulae Not Found: $FORMULA"
+    exit 1
 fi
 
-# 显示搜索结果并选择
-echo "找到以下 bottles:"
-i=1
-for result in $search_results; do
-  echo "$i) $result"
-  i=$((i+1))
-done
+VERSION=$(echo $FORMULA_JSON | jq -r '.versions.stable' 2>/dev/null)
 
-# 获取用户选择
-read -p "请选择要下载的 bottle (默认 1): " choice
-choice=${choice:-1}
+BOTTLES=$(echo $FORMULA_JSON | jq -r '.bottle.stable.files | to_entries[] | "\(.key) \(.value.url)"' 2>/dev/null)
 
-# 检查选择是否有效
-if [[ ! "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt "$i" ]; then
-  echo "错误: 无效的选择"
-  exit 1
+if [[ -z "$BOTTLES" ]]; then
+    echo "Can't find the bottle"
+    exit 1
 fi
 
-# 获取下载链接
-download_url="$mirror_url$(echo "$search_results" | sed -n "$choice p")"
+echo "Find the following bottles (version: $VERSION):"
+COUNT=1
+declare -a URLS
+declare -a FILENAMES
+declare -a ARCHITECTURES
+declare -a SYSTEMS
+while IFS= read -r line; do
+    FILENAME=$(echo $line | cut -d' ' -f1)
+    URL=$(echo $line | cut -d' ' -f2)
+    SYSTEM=$(echo $FILENAME | cut -d'.' -f2)
+    ARCHITECTURE=$(echo $FILENAME | cut -d'.' -f1)
+    DISPLAY_NAME="${FORMULA}-${VERSION}_${SYSTEM}.bottle.tar.gz"
+    echo "$COUNT) $DISPLAY_NAME"
+    URLS+=("$URL")
+    FILENAMES+=("$DISPLAY_NAME")
+    ((COUNT++))
+done <<< "$BOTTLES"
 
-# 下载 bottle
-echo "正在下载 $download_url..."
-curl -k -L -o "$(basename "$download_url")" "$download_url"
+echo "Please select the bottle to download (default 1):"
+read -r CHOICE
+CHOICE=${CHOICE:-1}
 
-echo "下载完成: $(basename "$download_url")"
+SELECTED_URL="${URLS[$CHOICE-1]}"
+SELECTED_FILENAME="${FILENAMES[$CHOICE-1]}"
+
+REAL_URL=$(curl -s -I -L -H "Authorization: Bearer QQ==" "$SELECTED_URL" | grep -i "Location" | awk '{print $2}' | tr -d '\r')
+
+if [[ -z "$REAL_URL" ]]; then
+    curl -L -o "$SELECTED_FILENAME" -H "Authorization: Bearer QQ==" "$SELECTED_URL"
+else
+    curl -L -o "$SELECTED_FILENAME" "$REAL_URL"
+fi
